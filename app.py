@@ -125,9 +125,17 @@ if user_stats_file and user_conversations_file:
 
                     # display chat details
                     st.subheader(f"Chat: {selected_chat_title}")
+                    st.write(f"**Created At:** {selected_chat['created_at']}")
+                    st.write(f"**Updated At:** {selected_chat['updated_at']}")
+                    st.write(f"**Verified:** {not(selected_chat['open_search'])}")
+                    st.write(f"**Total Cost:** {selected_chat['tot_cost']}$")
+                    st.write(f"**REGNO:** {selected_chat['regno']}")
                     st.write(f"**Vehicle:** {selected_chat['manufacturer']} {selected_chat['model']} {int(selected_chat['year'])}")
                     st.write(f"**Mileage:** {selected_chat['mileage']}")
                     st.write(f"**Error Codes:** {', '.join(selected_chat['dtcs'])}")
+                    st.write(f"**Internal Error Codes:** {', '.join(selected_chat['internal_error_codes'])}")
+                    st.write(f"**Mechanic description:** {selected_chat['description']}")
+                    st.write(f"**Feedback:** {selected_chat['feedback']}")
 
                     # display messages excluding system messages
                     st.write("**Messages:**")
