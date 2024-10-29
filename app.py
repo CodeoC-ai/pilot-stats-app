@@ -116,15 +116,21 @@ if user_stats_file and user_conversations_file:
             # select a chat
             st.subheader("Select a Chat")
             mechanic_conversations = mechanic_conversations.sort_values(by='updated_at', ascending=False)
-            chat_titles = mechanic_conversations['title'].tolist()
+            # create a list of unique labels combining formatted updated_at, title, and chat_id for the dropdown
+            chat_options = mechanic_conversations.apply(
+                lambda row: f"{row['updated_at'].strftime('%Y-%m-%d %H:%M')} - {row['title']} (ID: {row['chat_id']})", axis=1
+            ).tolist()
 
-            if chat_titles:
-                selected_chat_title = st.selectbox("Select a chat", chat_titles)
-                if selected_chat_title:
-                    selected_chat = mechanic_conversations[mechanic_conversations['title'] == selected_chat_title].iloc[0]
+            if chat_options:
+                selected_chat_option = st.selectbox("Select a chat", chat_options)
+                if selected_chat_option:
+                    # extract chat_id from the selected option
+                    selected_chat_id = selected_chat_option.split(" (ID: ")[1][:-1]
+                    # filter the selected chat using chat_id
+                    selected_chat = mechanic_conversations[mechanic_conversations['chat_id'] == selected_chat_id].iloc[0]
 
                     # display chat details
-                    st.subheader(f"Chat: {selected_chat_title}")
+                    st.subheader(f"Chat: {selected_chat['title']}")
                     st.write(f"**Created At:** {selected_chat['created_at']}")
                     st.write(f"**Updated At:** {selected_chat['updated_at']}")
                     st.write(f"**Verified:** {not(selected_chat['open_search'])}")
