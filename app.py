@@ -22,9 +22,9 @@ if user_conversations_file:
 # proceed if both files are uploaded
 if user_stats_file and user_conversations_file:
     # convert date strings to datetime objects
-    user_stats_df['last_login'] = pd.to_datetime(user_stats_df['last_login'])
-    user_conversations_df['created_at'] = pd.to_datetime(user_conversations_df['created_at'])
-    user_conversations_df['updated_at'] = pd.to_datetime(user_conversations_df['updated_at'])
+    user_stats_df['last_login'] = pd.to_datetime(user_stats_df['last_login'], format='mixed')
+    user_conversations_df['created_at'] = pd.to_datetime(user_conversations_df['created_at'], format='mixed')
+    user_conversations_df['updated_at'] = pd.to_datetime(user_conversations_df['updated_at'], format='mixed')
 
     # divide the page into two columns
     col1, col2 = st.columns(2)
