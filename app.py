@@ -72,18 +72,27 @@ if user_stats_file and user_conversations_file:
 
         # calculate feedback statistics
         st.header("Feedback Analysis")
+
         # calculate feedback sum and create a new column for thumbs up/down
         user_conversations_df['feedback_sum'] = user_conversations_df['feedback'].apply(lambda x: sum(x) if isinstance(x, list) else 0)
         user_conversations_df['thumb'] = user_conversations_df['feedback_sum'].apply(lambda x: 'up' if x > 0 else ('down' if x < 0 else 'neutral'))
-        # create a feedback matrix
+        # total requests for supported and unsupported cars
+        total_supported_requests = len(user_conversations_df[user_conversations_df['open_search'] == False])
+        total_unsupported_requests = len(user_conversations_df[user_conversations_df['open_search'] == True])
+        # count thumbs up/down for supported and unsupported cars
         supported_positive = len(user_conversations_df[(user_conversations_df['open_search'] == False) & (user_conversations_df['thumb'] == 'up')])
         supported_negative = len(user_conversations_df[(user_conversations_df['open_search'] == False) & (user_conversations_df['thumb'] == 'down')])
         unsupported_positive = len(user_conversations_df[(user_conversations_df['open_search'] == True) & (user_conversations_df['thumb'] == 'up')])
         unsupported_negative = len(user_conversations_df[(user_conversations_df['open_search'] == True) & (user_conversations_df['thumb'] == 'down')])
+        # calculate ratios in percentages
+        supported_positive_ratio = (supported_positive / total_supported_requests * 100) if total_supported_requests > 0 else 0
+        supported_negative_ratio = (supported_negative / total_supported_requests * 100) if total_supported_requests > 0 else 0
+        unsupported_positive_ratio = (unsupported_positive / total_unsupported_requests * 100) if total_unsupported_requests > 0 else 0
+        unsupported_negative_ratio = (unsupported_negative / total_unsupported_requests * 100) if total_unsupported_requests > 0 else 0
         # create DataFrame for display
         feedback_matrix = pd.DataFrame({
-            'Supported Cars': [supported_positive, supported_negative],
-            'Unsupported Cars': [unsupported_positive, unsupported_negative]
+            'Supported Cars': [f"{supported_positive_ratio:.1f}%", f"{supported_negative_ratio:.1f}%"],
+            'Unsupported Cars': [f"{unsupported_positive_ratio:.1f}%", f"{unsupported_negative_ratio:.1f}%"]
         }, index=['👍', '👎'])
         # display matrix
         st.write(feedback_matrix)
@@ -149,13 +158,15 @@ if user_stats_file and user_conversations_file:
 
             # select a chat
             st.subheader("Select a Chat")
-            mechanic_conversations = mechanic_conversations.sort_values(by='updated_at', ascending=False)
-            # create a list of unique labels combining formatted updated_at, title, and chat_id for the dropdown
-            chat_options = mechanic_conversations.apply(
-                lambda row: f"{row['updated_at'].strftime('%Y-%m-%d %H:%M')} - {row['title']} (ID: {row['chat_id']})", axis=1
-            ).tolist()
 
-            if chat_options:
+            # display chats if available
+            if len(mechanic_conversations) > 0:
+                mechanic_conversations = mechanic_conversations.sort_values(by='updated_at', ascending=False)
+                # create a list of unique labels combining formatted updated_at, title, and chat_id for the dropdown
+                chat_options = mechanic_conversations.apply(
+                    lambda row: f"{row['updated_at'].strftime('%Y-%m-%d %H:%M')} - {row['title']} (ID: {row['chat_id']})", axis=1
+                ).tolist()
+
                 selected_chat_option = st.selectbox("Select a chat", chat_options)
                 if selected_chat_option:
                     # extract chat_id from the selected option
