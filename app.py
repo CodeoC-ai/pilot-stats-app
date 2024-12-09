@@ -40,6 +40,10 @@ if user_stats_file and user_conversations_file:
         total_chats = len(user_conversations_df)
         st.metric("Total Chats", total_chats)
 
+        # total number of free chats, the one with dtcs and internal_error_codes as None
+        free_chats = len(user_conversations_df[(user_conversations_df['dtcs'].isnull()) & (user_conversations_df['internal_error_codes'].isnull())])
+        st.metric("Free Chats", free_chats)
+
         # number of verified answers (open_search=False)
         verified_answers = len(user_conversations_df[user_conversations_df['open_search'] == False])
         st.metric("Verified Answers", f"{verified_answers}/{total_chats}")
@@ -62,15 +66,46 @@ if user_stats_file and user_conversations_file:
         avg_chats_per_mechanic = user_conversations_df.groupby('email').size().mean()
         st.metric("Average Chats per Mechanic", f"{avg_chats_per_mechanic:.2f}")
 
+        # average cost per chat
+        avg_cost_per_chat = user_conversations_df['tot_cost'].mean()
+        st.metric("Average Cost per Chat", f"{avg_cost_per_chat:.2f}$")
+
+        # calculate feedback statistics
+        st.header("Feedback Analysis")
+        # calculate feedback sum and create a new column for thumbs up/down
+        user_conversations_df['feedback_sum'] = user_conversations_df['feedback'].apply(lambda x: sum(x) if isinstance(x, list) else 0)
+        user_conversations_df['thumb'] = user_conversations_df['feedback_sum'].apply(lambda x: 'up' if x > 0 else ('down' if x < 0 else 'neutral'))
+        # create a feedback matrix
+        supported_positive = len(user_conversations_df[(user_conversations_df['open_search'] == False) & (user_conversations_df['thumb'] == 'up')])
+        supported_negative = len(user_conversations_df[(user_conversations_df['open_search'] == False) & (user_conversations_df['thumb'] == 'down')])
+        unsupported_positive = len(user_conversations_df[(user_conversations_df['open_search'] == True) & (user_conversations_df['thumb'] == 'up')])
+        unsupported_negative = len(user_conversations_df[(user_conversations_df['open_search'] == True) & (user_conversations_df['thumb'] == 'down')])
+        # create DataFrame for display
+        feedback_matrix = pd.DataFrame({
+            'Supported Cars': [supported_positive, supported_negative],
+            'Unsupported Cars': [unsupported_positive, unsupported_negative]
+        }, index=['👍', '👎'])
+        # display matrix
+        st.write(feedback_matrix)
+        # calculate and display percentages
+        total_supported = supported_positive + supported_negative
+        total_unsupported = unsupported_positive + unsupported_negative
+        if total_supported > 0:
+            supported_satisfaction = (supported_positive / total_supported) * 100
+            st.write(f"Satisfaction rate for supported cars: {supported_satisfaction:.0f}%")
+        if total_unsupported > 0:
+            unsupported_satisfaction = (unsupported_positive / total_unsupported) * 100
+            st.write(f"Satisfaction rate for unsupported cars: {unsupported_satisfaction:.0f}%")
+
         # most common error codes
         st.header("Most Common Error Codes")
-        all_dtcs = [dtc for dtcs in user_conversations_df['dtcs'] for dtc in dtcs]
+        all_dtcs = [dtc for dtcs in user_conversations_df['dtcs'] if dtcs is not None for dtc in dtcs]
         dtc_counts = pd.Series(all_dtcs).value_counts()
         st.write(dtc_counts)
 
         # most common internal error codes
         st.header("Most Common Internal Error Codes")
-        internal_dtcs = [internal_error_code for dtcs in user_conversations_df['internal_error_codes'] for internal_error_code in dtcs]
+        internal_dtcs = [internal_error_code for internal_error_codes in user_conversations_df['internal_error_codes'] if internal_error_codes is not None for internal_error_code in internal_error_codes]
         internal_dtc_counts = pd.Series(internal_dtcs).value_counts()
         st.write(internal_dtc_counts)
 
