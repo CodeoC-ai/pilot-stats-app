@@ -1,29 +1,43 @@
-import streamlit as st
-import pandas as pd
-import json
+import os, json, gzip, io, boto3, streamlit as st, pandas as pd
 
 st.set_page_config(layout="wide")
 
 st.title("User Statistics Dashboard")
 st.write("This dashboard provides insights into user statistics and conversations.")
-st.write("Please upload the required JSON files to proceed.")
 
-# upload user_stats.json
-user_stats_file = st.file_uploader("Upload user_stats.json", type="json")
-if user_stats_file:
-    user_stats = json.load(user_stats_file)
-    user_stats_df = pd.DataFrame(user_stats)
+REGION = "eu-north-1"
+if "AWS_ACCESS_KEY_ID" in st.secrets:
+    session = boto3.Session(
+        aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"],
+        region_name=REGION,
+    )
+else:
+    st.warning(
+        "AWS credentials are not provided. Please set them in Streamlit secrets."
+    )
+    st.stop()
 
-# upload user_conversations.json
-user_conversations_file = st.file_uploader(
-    "Upload user_conversations.json", type="json"
-)
-if user_conversations_file:
-    user_conversations = json.load(user_conversations_file)
-    user_conversations_df = pd.DataFrame(user_conversations)
+s3 = session.client("s3")
+DATA_BUCKET = "codeoc-dashboard-prod"
+STATS_KEY = "latest/user_stats.json.gz"
+CONV_KEY = "latest/user_conversations.json.gz"
 
-# proceed if both files are uploaded
-if user_stats_file and user_conversations_file:
+
+# load JSON data from S3
+@st.cache_data(ttl=60)
+def load_s3_json(key: str) -> list[dict]:
+    obj = s3.get_object(Bucket=DATA_BUCKET, Key=key)
+    with gzip.GzipFile(fileobj=obj["Body"]) as gz:
+        return json.loads(gz.read().decode())
+
+
+# load dataframes
+user_stats_df = pd.DataFrame(load_s3_json(STATS_KEY))
+user_conversations_df = pd.DataFrame(load_s3_json(CONV_KEY))
+
+# proceed if both dataframes are loaded
+if not user_stats_df.empty and not user_conversations_df.empty:
     # convert date strings to datetime objects
     user_stats_df["last_login"] = pd.to_datetime(
         user_stats_df["last_login"], format="mixed", utc=True
@@ -466,3 +480,6 @@ if user_stats_file and user_conversations_file:
                                     st.markdown(f"**Assistant:** {message['content']}")
                 else:
                     st.write("No chats available for this user.")
+else:
+    st.warning("No data available. Please try again later.")
+    st.stop()
