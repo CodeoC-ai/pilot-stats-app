@@ -282,18 +282,74 @@ if not user_stats_df.empty and not user_conversations_df.empty:
 
         # most active users
         st.header("Most Active Users")
-        user_chat_counts = (
-            user_conversations_df.groupby(
-                ["user_id", "email", "user_role", "company_name"]
+        # date range filter for last login
+        min_login_date = user_stats_df["last_login"].min().date()
+        max_login_date = user_stats_df["last_login"].max().date()
+        col_login_start, col_login_end = st.columns(2)
+        with col_login_start:
+            start_date_login = st.date_input(
+                "Last login after",
+                value=min_login_date,
+                min_value=min_login_date,
+                max_value=max_login_date,
             )
-            .size()
-            .reset_index(name="number of chats")
-        )
-        user_chat_counts = user_chat_counts.sort_values(
-            by="number of chats", ascending=False
-        )
-        user_chat_counts.index = user_chat_counts.index + 1
-        st.write(user_chat_counts)
+        with col_login_end:
+            end_date_login = st.date_input(
+                "Last login before",
+                value=max_login_date,
+                min_value=min_login_date,
+                max_value=max_login_date,
+            )
+        # ensure start_date is before or same as end_date
+        if start_date_login > end_date_login:
+            st.error(
+                "Error: 'Last login after' date must be before or same as 'Last login before' date."
+            )
+            # visualize table normally
+            user_chat_counts_display = (
+                user_conversations_df.groupby(
+                    ["user_id", "email", "user_role", "company_name"]
+                )
+                .size()
+                .reset_index(name="number of chats")
+            )
+            user_chat_counts_display = user_chat_counts_display.sort_values(
+                by="number of chats", ascending=False
+            )
+            user_chat_counts_display.index = user_chat_counts_display.index + 1
+        else:
+            # merge user_chat_counts with user_stats_df to get last_login
+            user_chat_counts_intermediate = (
+                user_conversations_df.groupby(
+                    ["user_id", "email", "user_role", "company_name"]
+                )
+                .size()
+                .reset_index(name="number of chats")
+            )
+            # merge with last_login from user_stats_df
+            user_chat_counts_with_login = pd.merge(
+                user_chat_counts_intermediate,
+                user_stats_df[["user_id", "last_login"]],
+                on="user_id",
+                how="left",
+            )
+            # convert start_date_login and end_date_login to datetime64[ns, UTC] to match last_login's dtype for proper comparison
+            start_datetime_login = pd.to_datetime(start_date_login, utc=True)
+            # add one day to end_date_login and convert to make the range inclusive of the end_date
+            end_datetime_login = pd.to_datetime(
+                end_date_login, utc=True
+            ) + pd.Timedelta(days=1)
+            # filter by last_login date
+            user_chat_counts_display = user_chat_counts_with_login[
+                (user_chat_counts_with_login["last_login"] >= start_datetime_login)
+                & (user_chat_counts_with_login["last_login"] < end_datetime_login)
+            ]
+            user_chat_counts_display = user_chat_counts_display.sort_values(
+                by="number of chats", ascending=False
+            )
+            # user_chat_counts_display = user_chat_counts_display.drop(columns=['last_login']) # drop last_login column
+            user_chat_counts_display.index = user_chat_counts_display.index + 1
+        st.write(user_chat_counts_display)
 
     # right column: company -> user -> chats hierarchy
     with col2:
